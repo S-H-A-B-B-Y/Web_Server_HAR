@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="https://jakarta.ee/xml/ns/jakartaee" xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd" version="6.0">
+  <servlet>
+    <description></description>
+    <display-name>SensorDataServer_Thread</display-name>
+    <servlet-name>SensorDataServer_Thread</servlet-name>
+    <servlet-class>HarServer.SensorDataServer_Thread</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>SensorDataServer_Thread</servlet-name>
+    <url-pattern>/SensorDataServer_Thread</url-pattern>
+  </servlet-mapping>
+  <display-name>HAR_Server</display-name>
+  <welcome-file-list>
+    <welcome-file>index.html</welcome-file>
+    <welcome-file>index.htm</welcome-file>
+    <welcome-file>index.jsp</welcome-file>
+    <welcome-file>default.html</welcome-file>
+    <welcome-file>default.htm</welcome-file>
+    <welcome-file>default.jsp</welcome-file>
+  </welcome-file-list>
+  <servlet>
+    <description></description>
+    <display-name>UpdateStatusServlet</display-name>
+    <servlet-name>UpdateStatusServlet</servlet-name>
+    <servlet-class>HarServer.UpdateStatusServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>UpdateStatusServlet</servlet-name>
+    <url-pattern>/UpdateStatusServlet</url-pattern>
+  </servlet-mapping>
+  <servlet>
+    <description></description>
+    <display-name>StatusCheckServlet</display-name>
+    <servlet-name>StatusCheckServlet</servlet-name>
+    <servlet-class>HarServer.StatusCheckServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>StatusCheckServlet</servlet-name>
+    <url-pattern>/StatusCheckServlet</url-pattern>
+  </servlet-mapping>
+</web-app>
