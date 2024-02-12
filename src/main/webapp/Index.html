@@ -19,14 +19,29 @@
             font-size: 18px;
             margin-top: 20px;
         }
+        select {
+            font-size: 16px;
+            padding: 8px;
+            margin-top: 10px;
+        }
     </style>
+    <script src="script.js"></script>
 </head>
 <body>
     <h1>Sensor Data Server</h1>
     <button id="startBtn" onclick="startServer()">Start Server</button>
     <button id="stopBtn" onclick="stopServer()">Stop Server</button>
     <div id="status">Server not running</div>
+    
+    <select id="activitySelect" onchange="selectActivity()">
+        <option value="">Select Activity</option>
+        <option value="Running">Running</option>
+        <option value="Walking">Walking</option>
+        <option value="Jumping">Jumping</option>
+        <option value="Stand Up">Stand Up</option>
+        <option value="Sit Down">Sit Down</option>
+    </select>
 
-    <script src="script.js"></script>
+    <canvas id="sensorChart"></canvas>
 </body>
 </html>

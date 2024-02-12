@@ -29,6 +29,7 @@ function startServer() {
         console.log("StatusRequest done");
         makeFetchRequest('/HAR_Server/SensorDataServlet', 'POST', () => {});
         console.log("Server Request made");
+        
     }
 }
 
@@ -39,5 +40,17 @@ function stopServer() {
     console.log("StatusRequest stop done");
     //makeFetchRequest('/HAR_Server/SensorDataServlet?action=stop', 'GET', () => {});
     //console.log("Server stop Request made");
+}
+
+//Set Activity
+function selectActivity() {
+    const activitySelect = document.getElementById('activitySelect');
+    const selectedActivity = activitySelect.value;
+
+    if (selectedActivity) {
+        makeFetchRequest(`/HAR_Server/SensorDataServlet?action=setActivity&activity=${selectedActivity}`, 'GET', () => {
+            console.log(`Selected activity set to: ${selectedActivity}`);
+        });
+    }
 }
 

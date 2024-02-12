@@ -8,7 +8,7 @@
   </servlet>
   <servlet-mapping>
     <servlet-name>SensorDataServer_Thread</servlet-name>
-    <url-pattern>/SensorDataServer_Thread</url-pattern>
+    <url-pattern>/SensorDataServlet_Thread</url-pattern>
   </servlet-mapping>
   <display-name>HAR_Server</display-name>
   <welcome-file-list>
