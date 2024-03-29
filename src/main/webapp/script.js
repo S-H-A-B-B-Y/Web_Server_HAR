@@ -29,6 +29,7 @@ function startServer() {
         console.log("StatusRequest done");
         makeFetchRequest('/HAR_Server/SensorDataServlet', 'POST', () => {});
         console.log("Server Request made");
+        
     }
 }
 
@@ -41,3 +42,20 @@ function stopServer() {
     //console.log("Server stop Request made");
 }
 
+
+// Function to set the selected activity
+function setActivity(selectedActivity) {
+    makeFetchRequest(`/HAR_Server/StatusCheckServlet?action=setActivity&selectedActivity=${selectedActivity}`, 'GET', () => {
+        console.log(`Selected activity set to: ${selectedActivity}`);
+    });
+}
+
+// Function called when activity selection changes
+function selectActivity() {
+    const activitySelect = document.getElementById('activitySelect');
+    const selectedActivity = activitySelect.value;
+
+    if (selectedActivity!=null) {
+        setActivity(selectedActivity);
+    }
+}

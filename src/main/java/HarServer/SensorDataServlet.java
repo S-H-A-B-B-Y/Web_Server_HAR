@@ -1,10 +1,13 @@
 package HarServer;
 
+import jakarta.servlet.ServletContext;
 import jakarta.servlet.ServletException;
+
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
@@ -20,6 +23,11 @@ import java.util.concurrent.Executors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import com.google.gson.Gson;
+
+import java.util.ArrayList;
+import java.util.List;
+
 @WebServlet("/SensorDataServlet")
 public class SensorDataServlet extends HttpServlet {
     private static final long serialVersionUID = 1L;
@@ -30,6 +38,7 @@ public class SensorDataServlet extends HttpServlet {
     private ServerSocket serverSocket;
     private ExecutorService executorService;
 
+    public static String activityName="";
     /**
      * @see HttpServlet#HttpServlet()
      */
@@ -114,17 +123,19 @@ public class SensorDataServlet extends HttpServlet {
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
-        response.getWriter().append("Server Status: ").append(serverRunning ? "Running" : "Not Running");
-        //String action = request.getParameter("action");
-        //if (action != null && "stop".equals(action)) {
-        //    destroy();
-        //} 
+    	
+       
     }
 
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
+ 
+    	ServletContext context = getServletContext();
 
+        // Check if the attribute already exists
+    	activityName = (String) context.getAttribute("activity");
+    	
     }
 
     private static class ClientHandler implements Runnable {
@@ -157,14 +168,19 @@ public class SensorDataServlet extends HttpServlet {
                 String userId = extractUserId(line);
                 String sensorType = extractSensorType(line);
                 String timestamp = extractTimestamp(line);
+                
+                //activityName = (String) getServletContext().getAttribute("activity");
 
+                //activityName = (String) getServletContext().getAttribute("activity");
                 // Build directory structure
-                String directoryPath = getFolderPath(source, userId, sensorType, timestamp);
+                String directoryPath = getFolderPath(activityName, source, userId, sensorType, timestamp);
 
+                System.out.println(activityName);
                 // Create directories if they don't exist
                 boolean success = new java.io.File(directoryPath).mkdirs();
                 if (success || new java.io.File(directoryPath).exists()) {
                     // Directories were created successfully or already exist
+                	
                     System.out.println("Directories exist or were created successfully. " + directoryPath);
                 } else {
                     // Failed to create directories
@@ -194,6 +210,15 @@ public class SensorDataServlet extends HttpServlet {
             //writer.write(200);
             //writer.close();
         }
+        private String[] extractSensorValues(String data) {
+            Pattern pattern = Pattern.compile("Sensor Type: \\w+: (-?\\d+\\.\\d+), (-?\\d+\\.\\d+), (-?\\d+\\.\\d+)");
+            Matcher matcher = pattern.matcher(data);
+            if (matcher.find()) {
+                return new String[]{matcher.group(1), matcher.group(2), matcher.group(3)};
+            } else {
+                return new String[]{"0", "0", "0"}; // Default values
+            }
+        }
     }
 
     private static void saveDataToFile(String directoryPath, String userId, String sensorType, String timestamp,
@@ -216,10 +241,22 @@ public class SensorDataServlet extends HttpServlet {
         }
     }
 
-    private static String getFolderPath(String source, String userId, String sensorType, String timestamp) {
+    private static String getFolderPath(String activityName, String source, String userId, String sensorType, String timestamp) {
         // return SOURCE_FOLDER_LOCATION + "\\" + source + "\\" + userId + "_" +
         // sensorType + "_" + timestamp;
-        return SOURCE_FOLDER_LOCATION + "\\" + source + "\\" + userId + "_" + sensorType;
+    	//String directoryPath;
+    	// Get the ServletContext object
+
+        // Retrieve the value from ServletContext
+    	if(activityName==null)
+    		{
+    		return SOURCE_FOLDER_LOCATION + "\\" + source + "\\" + userId + "_" + sensorType;
+    		}
+    	else
+    	{
+    		return SOURCE_FOLDER_LOCATION + "\\" + activityName + "\\" + source + "\\" + userId + "_" + sensorType;
+    	}
+    	
     }
 
     private static String extractSource(String data) {
@@ -261,4 +298,55 @@ public class SensorDataServlet extends HttpServlet {
             return "UnknownTimestamp";
         }
     }
+    
 }
+
+/*Graph logic
+ 
+  // Check if it's one of the required sensors (you can modify this condition accordingly)
+                if ("ACCELEROMETER".equals(sensorType) || "GYROSCOPE".equals(sensorType) || "MAGNETOMETER".equals(sensorType)) {
+                    // Extract x, y, z values
+                    //String[] values = extractSensorValues(line);
+
+                    // Store the data in memory
+                    //SensorDataEntry sensorDataEntry = new SensorDataEntry(userId, sensorType, values[0], values[1], values[2], timestamp);
+                    //sensorDataList.add(sensorDataEntry);
+                	BufferedWriter writer = new BufferedWriter(new FileWriter("C:\\HAR_Server_V1\\Graphs\\"+userId+".csv", true)); // Append to the file
+
+                    // Write data to the file as-is
+                    writer.write(line);
+                    writer.newLine();
+                    writer.close();
+                	
+                }
+                
+                private static class SensorDataEntry {
+        private String userId;
+        private String sensorType;
+        private String x;
+        private String y;
+        private String z;
+        private String timestamp;
+
+        public SensorDataEntry(String userId, String sensorType, String x, String y, String z, String timestamp) {
+            this.userId = userId;
+            this.sensorType = sensorType;
+            this.x = x;
+            this.y = y;
+            this.z = z;
+            this.timestamp = timestamp;
+        }
+           private static List<SensorDataEntry> sensorDataList = new ArrayList<>();
+                if ("/SensorDataServlet".equals(request.getServletPath())) {
+            // Handle GET requests to /SensorDataServlet
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+
+            // Convert the sensorDataList to JSON using Gson library
+            String jsonData = new Gson().toJson(sensorDataList);
+
+            // Write the JSON data to the response
+            response.getWriter().write(jsonData);
+        } else {
+}
+ */
