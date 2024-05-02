@@ -1,6 +1,7 @@
 package HarServer;
 
 import jakarta.servlet.ServletContext;
+
 import jakarta.servlet.ServletException;
 
 import jakarta.servlet.annotation.WebServlet;
@@ -26,7 +27,17 @@ import java.util.regex.Pattern;
 import com.google.gson.Gson;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+
+import com.rabbitmq.client.Channel;
+import com.rabbitmq.client.Connection;
+import com.rabbitmq.client.ConnectionFactory;
+import com.rabbitmq.client.Consumer;
+import com.rabbitmq.client.DefaultConsumer;
+import com.rabbitmq.client.Envelope;
+import com.rabbitmq.client.AMQP;
 
 @WebServlet("/SensorDataServlet")
 public class SensorDataServlet extends HttpServlet {
@@ -39,6 +50,16 @@ public class SensorDataServlet extends HttpServlet {
     private ExecutorService executorService;
 
     public static String activityName="";
+    
+    private Map<String, Thread> clientThreads;
+    
+    // RabbitMQ connection and channel
+    private static ConnectionFactory factory;
+    private static Connection connection;
+    private static Channel publishChannel;
+    private static Channel consumeChannel;
+    private static String queueName = "AMQP";
+
     /**
      * @see HttpServlet#HttpServlet()
      */
@@ -49,75 +70,80 @@ public class SensorDataServlet extends HttpServlet {
     @Override
     public void init() throws ServletException {
         super.init();
+        serverRunning=true;
+        clientThreads =new HashMap<String,Thread>();
+        // Initialize RabbitMQ connection and channel
+        try {
+            factory = new ConnectionFactory();
+            factory.setHost("localhost"); // Set RabbitMQ server hostname
+            connection = factory.newConnection();
+            // Publish channel
+            publishChannel = connection.createChannel();
+            publishChannel.queueDeclare(queueName, false, false, false, null);
+            
+            // Consume channel
+            consumeChannel = connection.createChannel();
+            consumeChannel.queueDeclare(queueName, false, false, false, null);
+            
+            // Start the consumer thread
+            new Thread(new MessageConsumer()).start();
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         startServer();
     }
     @Override
     public void destroy(){
-    	//stopServer();
         super.destroy();
+        // Close RabbitMQ connection and channel
+        try {
+        	 if (publishChannel != null) {
+                 publishChannel.close();
+             }
+             if (consumeChannel != null) {
+                 consumeChannel.close();
+             }
+             if (connection != null) {
+                 connection.close();
+             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        stopServer();
     }
-    private synchronized void startServer() {
-        if (!serverRunning) {
-            executorService = Executors.newFixedThreadPool(10);
-            System.out.println("Server running.");
-            new Thread(() -> {
-                try {
-                    serverSocket = new ServerSocket(12345);
-                    System.out.println("Server listening on port 12345...");
-
-                    // Set the server status to running
-                    serverRunning = true;
-
-                    while (acceptingConnections) {
-                        try {
-                            Socket socket = serverSocket.accept();
-                            if (acceptingConnections) {
-                                System.out.println("Client connected: " + socket.getInetAddress());
-
-                                // Create a new thread for each client connection
-                                executorService.submit(new ClientHandler(socket));
-                            } else {
-                                // Close the socket if acceptingConnections is set to false
-                                socket.close();
-                            }
-                        } catch (SocketException e) {
-                        	// If it's a socket closed exception, exit the loop and thread
-                            if (e.getMessage().equalsIgnoreCase("Socket closed")) {
-                                break;
-                            } else {
-                                e.printStackTrace();
-                            }
-                        }
-                    }
-                } catch (IOException e) {
+    private void startServer() {
+    	new Thread(() -> {
+            try {
+                serverSocket = new ServerSocket(12345);
+                System.out.println("Server started on port 12345");
+                while (serverRunning) {
+                    Socket clientSocket = serverSocket.accept();
+                    System.out.println("Client connected: " + clientSocket.getInetAddress());
+                    Thread clientThread = new Thread(new ClientHandler(clientSocket));
+                    clientThread.start();
+                    String clientAddress = clientSocket.getInetAddress().getHostAddress();
+                    clientThreads.put(clientAddress, clientThread);
+                }
+            } catch (IOException e) {
+                if (serverRunning) {
                     e.printStackTrace();
                 }
-            }).start();
-        }
+            }
+        }).start();
     }
 
-    private synchronized void stopServer() {
-        if (serverRunning) {
-        	 try {
-        		 
-                 // Set the flag to stop accepting new connections
-                 acceptingConnections = false;
-                 serverRunning = false;
-                 
-                 // Attempt to stop all actively executing tasks
-                 executorService.shutdownNow();
-                 
-                 // Wait for the executor service to terminate
-                 while (!executorService.isTerminated()) {
-                     Thread.sleep(100); // Wait for termination
-                 }
-
-                 serverSocket.close();
-                 System.out.println("Server stopped.");
-             } catch (IOException | InterruptedException e) {
-                 e.printStackTrace();
+    private void stopServer() {
+    	 serverRunning = false;
+         try {
+             serverSocket.close();
+             for (Thread thread : clientThreads.values()) {
+                 thread.join();
              }
-        }
+             System.out.println("Server stopped");
+         } catch (IOException | InterruptedException e) {
+             e.printStackTrace();
+         }
     }
 
     @Override
@@ -157,39 +183,14 @@ public class SensorDataServlet extends HttpServlet {
         private void handleClient() throws IOException {
             BufferedReader reader = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-            System.out.println("Connected to Client: " + clientSocket.getInetAddress());
             String line;
             try {
             while ((line = reader.readLine()) != null) {
                 System.out.println("Received data from " + clientSocket.getInetAddress() + ": " + line);
-
-                // Extract information from the current line
-                String source = extractSource(line);
-                String userId = extractUserId(line);
-                String sensorType = extractSensorType(line);
-                String timestamp = extractTimestamp(line);
                 
-                //activityName = (String) getServletContext().getAttribute("activity");
+                // Publish the received data to the queue
+                publishChannel.basicPublish("", queueName, null, line.getBytes());
 
-                //activityName = (String) getServletContext().getAttribute("activity");
-                // Build directory structure
-                String directoryPath = getFolderPath(activityName, source, userId, sensorType, timestamp);
-
-                System.out.println(activityName);
-                // Create directories if they don't exist
-                boolean success = new java.io.File(directoryPath).mkdirs();
-                if (success || new java.io.File(directoryPath).exists()) {
-                    // Directories were created successfully or already exist
-                	
-                    System.out.println("Directories exist or were created successfully. " + directoryPath);
-                } else {
-                    // Failed to create directories
-                    System.out.println("Failed to create directories. " + directoryPath);
-                    return;
-                }
-
-                // Save data to a file in CSV format
-                saveDataToFile(directoryPath, userId, sensorType, timestamp, line);
             }
             }catch (SocketException e) {
                 // Handle SocketException gracefully
@@ -203,12 +204,7 @@ public class SensorDataServlet extends HttpServlet {
                 clientSocket.close();
                 System.out.println("Connection closed for " + clientSocket.getInetAddress());
             }
-            // Close the socket after processing data
-            //clientSocket.close();
-            //System.out.println("Connection closed for " + clientSocket.getInetAddress());
-            //BufferedWriter writer = (new BufferedWriter(new OutputStreamWriter(clientSocket.getOutputStream())));
-            //writer.write(200);
-            //writer.close();
+
         }
         private String[] extractSensorValues(String data) {
             Pattern pattern = Pattern.compile("Sensor Type: \\w+: (-?\\d+\\.\\d+), (-?\\d+\\.\\d+), (-?\\d+\\.\\d+)");
@@ -220,7 +216,54 @@ public class SensorDataServlet extends HttpServlet {
             }
         }
     }
+    
+    private static class MessageConsumer implements Runnable {
+        @Override
+        public void run() {
+            try {
+                // Create a consumer
+                Consumer consumer = new DefaultConsumer(consumeChannel) {
+                    @Override
+                    public void handleDelivery(String consumerTag, Envelope envelope,
+                                               AMQP.BasicProperties properties, byte[] body) throws IOException {
+                        String message = new String(body, "UTF-8");
+                        System.out.println("Data from Queue: "+message);
+                        processMessage(message);
+                    }
+                };
+                
+                // Start consuming messages from the queue
+                consumeChannel.basicConsume(queueName, true, consumer);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
 
+    private static void processMessage(String message) {
+        // Extract information from the message
+        String source = extractSource(message);
+        String userId = extractUserId(message);
+        String sensorType = extractSensorType(message);
+        String timestamp = extractTimestamp(message);
+        
+        // Build directory structure
+        String directoryPath = getFolderPath(activityName, source, userId, sensorType, timestamp);
+
+        // Create directories if they don't exist
+        boolean success = new java.io.File(directoryPath).mkdirs();
+        if (success || new java.io.File(directoryPath).exists()) {
+            // Directories were created successfully or already exist
+            System.out.println("Directories exist or were created successfully. " + directoryPath);
+        } else {
+            // Failed to create directories
+            System.out.println("Failed to create directories. " + directoryPath);
+            return;
+        }
+
+        // Save data to a file in CSV format
+        saveDataToFile(directoryPath, userId, sensorType, timestamp, message);
+    }
     private static void saveDataToFile(String directoryPath, String userId, String sensorType, String timestamp,
             String data) {
         try {
@@ -242,12 +285,7 @@ public class SensorDataServlet extends HttpServlet {
     }
 
     private static String getFolderPath(String activityName, String source, String userId, String sensorType, String timestamp) {
-        // return SOURCE_FOLDER_LOCATION + "\\" + source + "\\" + userId + "_" +
-        // sensorType + "_" + timestamp;
-    	//String directoryPath;
-    	// Get the ServletContext object
-
-        // Retrieve the value from ServletContext
+       
     	if(activityName==null)
     		{
     		return SOURCE_FOLDER_LOCATION + "\\" + source + "\\" + userId + "_" + sensorType;

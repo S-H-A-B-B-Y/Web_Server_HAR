@@ -25,53 +25,37 @@ public class StatusCheckServlet extends HttpServlet {
         String action = request.getParameter("action");
 
         System.out.println("server State main "+state);
-       /* if(action !=null)
-        {
-        	if(action.equals("setActivity"))
-        	{
-        		activityName=request.getParameter("selectedActivity");
-        	}
-        	else if(action.equals("getActivity"))
-        	{
-        		response.getWriter().write(activityName);
-        	}
-        	else if(action.equals("stop"))
-        	{
-        		state=false;
-        	}
-        	else {
-        		state=true;
-        	}*/
+
         if(action!=null)
         {
-        if(action.equals("setActivity"))
-    	{
-    		activityName=request.getParameter("selectedActivity");
-    		ServletContext context = getServletContext();
-
-             // Check if the attribute already exists
-            String currentActivity = (String) context.getAttribute("activity");
-             
-            if (currentActivity != null) {
-                 // If the attribute already exists, update its value
-                System.out.println("Activity updated to: "+ (String) context.getAttribute("activity"));
-
-                 context.setAttribute("activity", activityName);
-                 System.out.println("Activity updated to: "+ activityName);
-             } else {
-                 // If the attribute doesn't exist, initialize it with the new activity name
-                 context.setAttribute("activity", activityName);
-                 System.out.println("Activity Set to: "+ activityName);
-             }
-    	}
-    	else if(action.equals("start"))
-    	{
-    		state=true;
-    	}
-    	else if(action.equals("stop"))
-    	{
-    		state=false;
-    	}
+	        if(action.equals("setActivity"))
+	    	{
+	    		activityName=request.getParameter("selectedActivity");
+	    		ServletContext context = getServletContext();
+	
+	             // Check if the attribute already exists
+	            String currentActivity = (String) context.getAttribute("activity");
+	             
+	            if (currentActivity != null) {
+	                 // If the attribute already exists, update its value
+	                System.out.println("Activity updated to: "+ (String) context.getAttribute("activity"));
+	
+	                 context.setAttribute("activity", activityName);
+	                 System.out.println("Activity updated to: "+ activityName);
+	             } else {
+	                 // If the attribute doesn't exist, initialize it with the new activity name
+	                 context.setAttribute("activity", activityName);
+	                 System.out.println("Activity Set to: "+ activityName);
+	             }
+	    	}
+	    	else if(action.equals("start"))
+	    	{
+	    		state=true;
+	    	}
+	    	else if(action.equals("stop"))
+	    	{
+	    		state=false;
+	    	}
         }
         else {
         	 if (state) {
